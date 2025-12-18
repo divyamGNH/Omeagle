@@ -1,4 +1,5 @@
 import {User} from "./UserManager";
+import { Socket } from "socket.io";
 
 let GLOBAL_ROOM_ID = 1;
 
@@ -19,6 +20,12 @@ export class RoomManager{
         const roomId = this.generate().toString();
 
         this.rooms.set(roomId, {user1, user2});
+
+        //Add the users in the socket-io rooms so that we can easily making a chatting section for them
+        console.log("Adding the users in the socket rooms");
+        user1.socket.join(roomId);
+        user2.socket.join(roomId);
+        console.log("Added the users in the socket rooms. Users ready for chatting");
 
         user1.socket.emit('send-offer',{
             roomId
@@ -67,4 +74,21 @@ export class RoomManager{
     generate(){
         return GLOBAL_ROOM_ID++;
     }
+
+    findRoomBySocketId(socketId: string): { roomId: string, room: Room } | null {
+        for (const [roomId, room] of this.rooms.entries()) {
+            if (
+                room.user1.socket.id === socketId ||
+                room.user2.socket.id === socketId
+            ) {
+                return { roomId, room };
+            }
+        }
+        return null;
+    }
+
+    deleteRoom(roomId: string) {
+        this.rooms.delete(roomId);
+    }
+
 }

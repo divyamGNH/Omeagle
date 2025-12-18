@@ -25,9 +25,15 @@ export class UserManager{
         this.initHandlers(socket);
     }
 
-    removeUser(){
+    //next connection
+    // removeUser(socketId : string){
+    //     const user = this.users.find(x=>x.socket.id===socketId);
+    //     if(!user) return;
 
-    }
+    //     this.users = this.users.filter(u=>u.socket.id !== socketId);
+    //     this.queue = this.queue.filter(id => id !== socketId);
+    //     this.roomManager.removeUser(socketId);
+    // }
 
     clearQueue(){
         console.log("inside clear queue");
@@ -62,5 +68,30 @@ export class UserManager{
         socket.on("add-ice-candidate",({candidate, roomId, type})=>{
             this.roomManger.onIceCandidates(roomId, socket.id, candidate, type);
         });
+    }
+
+    //endSession
+    endSession(socket:Socket){
+        const socketId = socket.id;
+
+        this.queue.filter(id=>id!==socket.id);
+
+        const Room = this.roomManger.findRoomBySocketId(socketId);
+
+        if(Room){
+            const {roomId, room} = Room;
+
+            const remainingUser = room.user1.socket.id === socketId ? room.user2 : room.user1;
+
+            this.roomManger.deleteRoom(roomId);
+
+            remainingUser.socket.emit("lobby");
+
+            this.queue.push(remainingUser.socket.id);
+        }
+
+        this.users = this.users.filter(u=>u.socket.id !== socket.id);
+
+        this.clearQueue();
     }
 }
