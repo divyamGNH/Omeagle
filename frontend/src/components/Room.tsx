@@ -3,6 +3,13 @@ import { Socket, io } from "socket.io-client";
 
 const URL = "http://localhost:3000";
 
+interface ChatMessage {
+  text: string;
+  senderId: string;
+  senderName: string;
+  timeStamp: number;
+}
+
 export const Room = ({
   name,
   localAudioTrack,
@@ -13,21 +20,37 @@ export const Room = ({
   localVideoTrack: MediaStreamTrack | null;
 }) => {
   const [lobby, setLobby] = useState(true);
-  const [sendingPc, setSendingPc] = useState<any>(null);
-  const [receivingPc, setReceivingPc] = useState<RTCPeerConnection | null>(null);
-  const [socket, setSocket] = useState<Socket | null>(null);
+
+  const socketRef = useRef<Socket | null>(null);
+  const roomIdRef = useRef<string | null>(null);
+
+  const sendingPcRef = useRef<RTCPeerConnection | null>(null);
+  const receivingPcRef = useRef<RTCPeerConnection | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
+  const remoteStreamRef = useRef<MediaStream>(new MediaStream());
+
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  // ✅ NEW: socket id stored in state (render-safe)
+  const [mySocketId, setMySocketId] = useState<string>("");
+
   useEffect(() => {
     const socket = io(URL);
+    socketRef.current = socket;
+
+    // ✅ set socket id ONCE
+    setMySocketId(socket.id!);
 
     socket.on("send-offer", async ({ roomId }) => {
       setLobby(false);
+      roomIdRef.current = roomId;
 
       const pc = new RTCPeerConnection();
-      setSendingPc(pc);
+      sendingPcRef.current = pc;
 
       if (localVideoTrack) pc.addTrack(localVideoTrack);
       if (localAudioTrack) pc.addTrack(localAudioTrack);
@@ -45,7 +68,7 @@ export const Room = ({
       pc.onnegotiationneeded = async () => {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        socket.emit("offer", { sdp: offer, roomId });
+        socket.emit("offer", { roomId, sdp: offer });
       };
     });
 
@@ -53,21 +76,15 @@ export const Room = ({
       setLobby(false);
 
       const pc = new RTCPeerConnection();
-      setReceivingPc(pc);
+      receivingPcRef.current = pc;
 
-      await pc.setRemoteDescription(sdp);
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+      remoteStreamRef.current = new MediaStream();
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStreamRef.current;
+      }
 
       pc.ontrack = (e) => {
-        if (!remoteVideoRef.current) return;
-
-        let stream = remoteVideoRef.current.srcObject as MediaStream | null;
-        if (!stream) {
-          stream = new MediaStream();
-          remoteVideoRef.current.srcObject = stream;
-        }
-        stream.addTrack(e.track);
+        remoteStreamRef.current.addTrack(e.track);
       };
 
       pc.onicecandidate = (e) => {
@@ -80,24 +97,37 @@ export const Room = ({
         }
       };
 
+      await pc.setRemoteDescription(sdp);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
       socket.emit("answer", { roomId, sdp: answer });
     });
 
     socket.on("answer", ({ sdp }) => {
-      sendingPc?.setRemoteDescription(sdp);
+      sendingPcRef.current?.setRemoteDescription(sdp);
     });
 
     socket.on("add-ice-candidate", ({ candidate, type }) => {
-      if (type === "sender") receivingPc?.addIceCandidate(candidate);
-      else sendingPc?.addIceCandidate(candidate);
+      if (type === "sender") {
+        receivingPcRef.current?.addIceCandidate(candidate);
+      } else {
+        sendingPcRef.current?.addIceCandidate(candidate);
+      }
     });
 
-    socket.on("lobby", () => setLobby(true));
+    socket.on("lobby", () => {
+      setLobby(true);
+      setMessages([]);
+    });
 
-    setSocket(socket);
+    socket.on("receive-message", (message: ChatMessage) => {
+      setMessages((prev) => [...prev, message]);
+    });
+
+    return () => socket.disconnect();
   }, [localAudioTrack, localVideoTrack]);
 
-  /* ================== LOCAL VIDEO ================== */
   useEffect(() => {
     if (localVideoRef.current && localVideoTrack) {
       localVideoRef.current.srcObject = new MediaStream([localVideoTrack]);
@@ -105,10 +135,31 @@ export const Room = ({
     }
   }, [localVideoTrack]);
 
-  /* ================== UI ================== */
+  const handleSend = () => {
+    if (!socketRef.current || !roomIdRef.current) return;
+
+    const text = message.trim();
+    if (!text) return;
+
+    const chatMessage: ChatMessage = {
+      text,
+      senderId: socketRef.current.id!,
+      senderName: name,
+      timeStamp: Date.now(),
+    };
+
+    socketRef.current.emit("send-message", {
+      roomId: roomIdRef.current,
+      message: chatMessage,
+    });
+
+    setMessages((prev) => [...prev, chatMessage]);
+    setMessage("");
+  };
+
   return (
     <div className="w-screen h-screen bg-white flex flex-col text-sm text-gray-800">
-      {/* Top Bar */}
+      {/* Header */}
       <div className="border-b border-gray-300 px-4 py-2 flex justify-between items-center">
         <div className="font-semibold">omegle</div>
         <div className="text-gray-600">
@@ -121,7 +172,6 @@ export const Room = ({
       <div className="flex-1 flex">
         {/* LEFT: Videos */}
         <div className="w-1/3 border-r border-gray-300 p-2 flex flex-col gap-2">
-          {/* Stranger */}
           <div className="flex-1 border border-gray-300 bg-black relative">
             <video
               ref={remoteVideoRef}
@@ -136,7 +186,6 @@ export const Room = ({
             )}
           </div>
 
-          {/* You */}
           <div className="flex-1 border border-gray-300 bg-black">
             <video
               ref={localVideoRef}
@@ -150,23 +199,42 @@ export const Room = ({
 
         {/* RIGHT: Chat */}
         <div className="flex-1 flex flex-col">
-          {/* Messages */}
           <div className="flex-1 p-4 overflow-y-auto">
-            <div className="text-gray-600">
-              {lobby
-                ? "Looking for someone you can chat with..."
-                : "You're now connected. Say hi!"}
-            </div>
+            {messages.map((msg, idx) => {
+              const isMe: boolean = msg.senderId === mySocketId;
+
+              return (
+                <div key={idx} className="text-sm text-gray-800">
+                  <span className="font-semibold">
+                    {isMe ? "You" : msg.senderName}
+                  </span>
+                  <span>{`: ${msg.text}`}</span>
+                  <span className="ml-2 text-xs text-gray-400">
+                    {new Date(msg.timeStamp).toLocaleTimeString()}
+                  </span>
+                </div>
+              );
+            })}
+
+            {lobby && (
+              <div className="text-gray-600">
+                Looking for someone you can chat with ...
+              </div>
+            )}
           </div>
 
-          {/* Input */}
           <div className="border-t border-gray-300 p-2 flex gap-2">
             <input
               type="text"
-              placeholder="Type a message..."
               className="flex-1 border border-gray-300 px-2 py-1 outline-none"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Type a message..."
             />
-            <button className="px-4 py-1 border border-gray-400 bg-gray-100 hover:bg-gray-200">
+            <button
+              onClick={handleSend}
+              className="px-4 py-1 border border-gray-400 bg-gray-100 hover:bg-gray-200"
+            >
               Send
             </button>
           </div>

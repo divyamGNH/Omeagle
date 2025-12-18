@@ -31,6 +31,8 @@ const Landing = () => {
   }, []);
 
   if (!joined) {
+    const isNameValid = name.trim().length > 0;
+
     return (
       <div className="w-screen h-screen bg-white flex flex-col text-sm text-gray-800">
         {/* Top */}
@@ -41,7 +43,7 @@ const Landing = () => {
         {/* Content */}
         <div className="flex-1 flex items-center justify-center">
           <div className="flex gap-8">
-            {/* BIGGER Webcam */}
+            {/* Video preview */}
             <div className="w-150 h-105 border border-gray-300 bg-black">
               <video
                 ref={videoRef}
@@ -55,16 +57,22 @@ const Landing = () => {
             {/* Controls */}
             <div className="flex flex-col gap-3">
               <div>
-                <div className="mb-1 text-gray-600">Enter your name (optional)</div>
+                <div className="mb-1 text-gray-600">Enter your name</div>
                 <input
                   type="text"
                   className="border border-gray-300 px-2 py-1 w-64 outline-none"
+                  value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
 
               <button
-                className="border border-gray-400 bg-gray-100 px-4 py-1 hover:bg-gray-200"
+                className={`border px-4 py-1 ${
+                  isNameValid
+                    ? "border-gray-400 bg-gray-100 hover:bg-gray-200"
+                    : "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                }`}
+                disabled={!isNameValid}
                 onClick={() => setJoined(true)}
               >
                 Start Chat
@@ -82,7 +90,7 @@ const Landing = () => {
 
   return (
     <Room
-      name={name}
+      name={name.trim()}
       localAudioTrack={localAudioTrack}
       localVideoTrack={localVideoTrack}
     />

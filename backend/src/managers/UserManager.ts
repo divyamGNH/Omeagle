@@ -1,5 +1,6 @@
 import { Socket } from "socket.io";
 import {RoomManager} from "./RoomManager";
+import { Server } from "socket.io";
 
 export interface User{
     socket : Socket,
@@ -11,10 +12,10 @@ export class UserManager{
     private queue : string[];
     private roomManger : RoomManager;
 
-    constructor(){
+    constructor(roomManager : RoomManager){
         this.users = [];
         this.queue = [];
-        this.roomManger = new RoomManager();
+        this.roomManger = roomManager;
     }
 
     addUser(name : string, socket : Socket){
@@ -68,6 +69,10 @@ export class UserManager{
         socket.on("add-ice-candidate",({candidate, roomId, type})=>{
             this.roomManger.onIceCandidates(roomId, socket.id, candidate, type);
         });
+
+        socket.on("send-message",({roomId, message})=>{
+            this.roomManger.onMessage(roomId, message, socket.id);
+        });   
     }
 
     //endSession

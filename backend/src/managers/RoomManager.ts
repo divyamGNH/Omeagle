@@ -1,5 +1,7 @@
+import { timeStamp } from "console";
 import {User} from "./UserManager";
 import { Socket } from "socket.io";
+import { Server } from "socket.io";
 
 let GLOBAL_ROOM_ID = 1;
 
@@ -8,12 +10,21 @@ interface Room{
     user2 : User,
 }
 
+interface ChatMessage {
+  text: string;
+  senderId: string;
+  senderName: string;
+  timeStamp: number;
+}
+
 export class RoomManager{
 
     private rooms : Map<string, Room>;
+    private io : Server;
 
-    constructor(){
+    constructor(io : Server){
         this.rooms = new Map<string, Room>()
+        this.io = io;
     }
 
     createRoom(user1 : User, user2: User){
@@ -89,6 +100,16 @@ export class RoomManager{
 
     deleteRoom(roomId: string) {
         this.rooms.delete(roomId);
+    }
+
+    onMessage(roomId: string, message:ChatMessage, socketId:string){
+        
+        const room = this.rooms.get(roomId);
+        if(!room) return;
+
+        const sender = room.user1.socket.id === socketId? room.user1: room.user2;
+
+        this.io.to(roomId).except(socketId).emit("receive-message",message);
     }
 
 }

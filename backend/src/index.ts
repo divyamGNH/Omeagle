@@ -3,6 +3,7 @@ import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import { UserManager } from "./managers/UserManager";
+import { RoomManager } from "./managers/RoomManager";
 
 const app = express();
 const server = http.createServer(app);
@@ -26,7 +27,8 @@ app.get("/", (req, res) => {
   res.json({ message: "Server is running" });
 });
 
-const userManager: UserManager = new UserManager();
+const roomManager : RoomManager = new RoomManager(io);
+const userManager: UserManager = new UserManager(roomManager);
 
 io.on("connection", (socket) => {
   console.log(`${socket.id} connected`);
