@@ -8,18 +8,21 @@ export interface User{
 }
 
 export class UserManager{
-    private users : User[];
+    // private users : User[];
+    private users : Map<string,User>
     private queue : string[];
     private roomManger : RoomManager;
 
     constructor(roomManager : RoomManager){
-        this.users = [];
+        // this.users = [];
+        this.users = new Map();
         this.queue = [];
         this.roomManger = roomManager;
     }
 
     addUser(name : string, socket : Socket){
-        this.users.push({name, socket});
+        // this.users.push({name, socket});
+        this.users.set(socket.id,{name, socket});
         this.queue.push(socket.id);
         socket.emit('lobby');
         this.clearQueue();
@@ -40,21 +43,24 @@ export class UserManager{
         console.log("inside clear queue");
         console.log(this.queue.length);
 
-        if(this.queue.length < 2) return;
+        while(this.queue.length >= 2){
 
-        const id1 = this.queue.pop();
-        const id2 = this.queue.pop();
+            //shift is like pop but to let the user that enter first match first.
+            const id1 = this.queue.shift();
+            const id2 = this.queue.shift();
 
-        console.log("id is" + id1 + id2);
+            //if we have faulter we just skip that case and move on that is why continue and not return as it will break the whole function.
+            if(!id1 || !id2) continue;
+            console.log("id is" + id1 + id2);
 
-        const user1 = this.users.find(x=>x.socket.id === id1);
-        const user2 = this.users.find(x=>x.socket.id === id2);
+            const user1 = this.users.get(id1);
+            const user2 = this.users.get(id2);
 
-        if(!user1 || !user2) return;
+            if(!user1 || !user2) continue;
 
-        console.log("creating room");
-        const room = this.roomManger.createRoom(user1, user2);
-        this.clearQueue()
+            console.log("creating room");
+            const room = this.roomManger.createRoom(user1, user2);
+        }
     }
 
     initHandlers(socket : Socket){
@@ -72,19 +78,23 @@ export class UserManager{
 
         socket.on("send-message",({roomId, message})=>{
             this.roomManger.onMessage(roomId, message, socket.id);
-        });   
+        });  
+        
+        socket.on("disconnect", () => {
+            this.endSession(socket);
+        });
     }
 
     //endSession
     endSession(socket:Socket){
         const socketId = socket.id;
 
-        this.queue.filter(id=>id!==socket.id);
+        this.queue = this.queue.filter(id => id!==socket.id);
 
-        const Room = this.roomManger.findRoomBySocketId(socketId);
+        const found = this.roomManger.findRoomBySocketId(socketId);
 
-        if(Room){
-            const {roomId, room} = Room;
+        if(found){
+            const {roomId, room} = found;
 
             const remainingUser = room.user1.socket.id === socketId ? room.user2 : room.user1;
 
@@ -95,8 +105,7 @@ export class UserManager{
             this.queue.push(remainingUser.socket.id);
         }
 
-        this.users = this.users.filter(u=>u.socket.id !== socket.id);
-
+        this.users.delete(socket.id);
         this.clearQueue();
     }
 }

@@ -2,8 +2,10 @@ import { timeStamp } from "console";
 import {User} from "./UserManager";
 import { Socket } from "socket.io";
 import { Server } from "socket.io";
+import crypto from "crypto";
 
-let GLOBAL_ROOM_ID = 1;
+//this might break at a scale so we use crypto.
+// let GLOBAL_ROOM_ID = 1;
 
 interface Room{
     user1 : User,
@@ -20,10 +22,12 @@ interface ChatMessage {
 export class RoomManager{
 
     private rooms : Map<string, Room>;
+    private socketToRoom : Map<string, string>;
     private io : Server;
 
     constructor(io : Server){
-        this.rooms = new Map<string, Room>()
+        this.rooms = new Map<string, Room>();
+        this.socketToRoom = new Map<string,string>();
         this.io = io;
     }
 
@@ -31,6 +35,8 @@ export class RoomManager{
         const roomId = this.generate().toString();
 
         this.rooms.set(roomId, {user1, user2});
+        this.socketToRoom.set(user1.socket.id, roomId);
+        this.socketToRoom.set(user2.socket.id, roomId);
 
         //Add the users in the socket-io rooms so that we can easily making a chatting section for them
         console.log("Adding the users in the socket rooms");
@@ -83,22 +89,27 @@ export class RoomManager{
     }
 
     generate(){
-        return GLOBAL_ROOM_ID++;
+        return crypto.randomUUID();
     }
 
     findRoomBySocketId(socketId: string): { roomId: string, room: Room } | null {
-        for (const [roomId, room] of this.rooms.entries()) {
-            if (
-                room.user1.socket.id === socketId ||
-                room.user2.socket.id === socketId
-            ) {
-                return { roomId, room };
-            }
-        }
-        return null;
+        const roomId = this.socketToRoom.get(socketId);
+        if(!roomId) return null;
+
+        const room = this.rooms.get(roomId);
+        if(!room) return null;
+
+        return {roomId, room};
     }
 
     deleteRoom(roomId: string) {
+        const room = this.rooms.get(roomId);
+
+        if(room){
+            this.socketToRoom.delete(room.user1.socket.id);
+            this.socketToRoom.delete(room.user2.socket.id);
+        }
+        
         this.rooms.delete(roomId);
     }
 
