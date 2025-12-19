@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Socket, io } from "socket.io-client";
 import { Camera, CameraOff, Mic, MicOff } from "lucide-react";
 
-const URL = "http://localhost:3000";
+const URL = import.meta.env.VITE_BACKEND_URL as string;
 
 interface ChatMessage {
   text: string;
@@ -126,7 +126,10 @@ export const Room = ({
       setMessages((prev) => [...prev, message]);
     });
 
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
+    
   }, [localAudioTrack, localVideoTrack]);
 
   useEffect(() => {
@@ -178,7 +181,7 @@ export const Room = ({
   };
 
   const handleNextConnection = () => {
-    if (!socketRef.current) return;
+    if (!socketRef.current || lobby) return;
     socketRef.current.emit("next-connection", socketRef.current.id);
   };
 
@@ -186,7 +189,9 @@ export const Room = ({
     <div className="w-screen h-screen overflow-hidden bg-white flex flex-col text-sm text-gray-800">
       {/* Header */}
       <div className="border-b border-gray-300 px-4 py-2 flex justify-between items-center">
-        <div className="font-semibold">omegle</div>
+        <div className="font-extrabold tracking-[0.35em] select-none">
+          CONNECTLY
+        </div>
         <div className="text-gray-600">
           You are now chatting with a random stranger.
         </div>
@@ -228,7 +233,6 @@ export const Room = ({
 
             {/* Controls */}
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-4">
-              {/* Camera */}
               <button
                 onClick={toggleCamera}
                 className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${
@@ -244,7 +248,6 @@ export const Room = ({
                 )}
               </button>
 
-              {/* Mic */}
               <button
                 onClick={toggleMic}
                 className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${
@@ -260,10 +263,14 @@ export const Room = ({
                 )}
               </button>
 
-              {/* NEXT */}
               <button
+                disabled={lobby}
                 onClick={handleNextConnection}
-                className="h-14 px-6 rounded-lg shadow-lg bg-red-600 hover:bg-red-700 text-white font-semibold"
+                className={`h-14 px-6 rounded-lg shadow-lg font-semibold ${
+                  lobby
+                    ? "bg-gray-400 cursor-not-allowed text-white"
+                    : "bg-red-600 hover:bg-red-700 text-white"
+                }`}
               >
                 NEXT
               </button>

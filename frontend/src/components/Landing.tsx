@@ -36,8 +36,8 @@ const Landing = () => {
     return (
       <div className="w-screen h-screen bg-white flex flex-col text-sm text-gray-800">
         {/* Top */}
-        <div className="border-b border-gray-300 px-4 py-2 font-semibold">
-          omegle
+        <div className="border-b border-gray-300 px-4 py-2 font-extrabold tracking-[0.35em] select-none">
+          CONNECTLY
         </div>
 
         {/* Content */}
@@ -79,7 +79,7 @@ const Landing = () => {
               </button>
 
               <div className="text-xs text-gray-500">
-                By clicking “Start Chat”, you agree to Omegle’s terms.
+                By clicking “Start Chat”, you agree to Connectly’s terms.
               </div>
             </div>
           </div>
