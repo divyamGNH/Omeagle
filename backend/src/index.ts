@@ -1,9 +1,13 @@
 import express from "express";
 import http from "http";
-import { Server } from "socket.io";
 import cors from "cors";
+import dotenv from "dotenv";
+
+import { Server } from "socket.io";
 import { UserManager } from "./managers/UserManager";
 import { RoomManager } from "./managers/RoomManager";
+
+dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
@@ -15,7 +19,7 @@ const io = new Server(server, {
   },
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT;
 
 app.use(cors({
   origin: "*",
