@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Socket, io } from "socket.io-client";
+import { Camera, CameraOff, Mic, MicOff } from "lucide-react";
 
 const URL = "http://localhost:3000";
 
@@ -35,14 +36,14 @@ export const Room = ({
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
-  // ✅ NEW: socket id stored in state (render-safe)
-  const [mySocketId, setMySocketId] = useState<string>("");
+  const [mySocketId, setMySocketId] = useState("");
+
+  const [isCameraOn, setIsCameraOn] = useState(true);
+  const [isMicOn, setIsMicOn] = useState(true);
 
   useEffect(() => {
     const socket = io(URL);
     socketRef.current = socket;
-
-    // ✅ set socket id ONCE
     setMySocketId(socket.id!);
 
     socket.on("send-offer", async ({ roomId }) => {
@@ -157,8 +158,20 @@ export const Room = ({
     setMessage("");
   };
 
+  const toggleCamera = () => {
+    if (!localVideoTrack) return;
+    localVideoTrack.enabled = !localVideoTrack.enabled;
+    setIsCameraOn(localVideoTrack.enabled);
+  };
+
+  const toggleMic = () => {
+    if (!localAudioTrack) return;
+    localAudioTrack.enabled = !localAudioTrack.enabled;
+    setIsMicOn(localAudioTrack.enabled);
+  };
+
   return (
-    <div className="w-screen h-screen bg-white flex flex-col text-sm text-gray-800">
+    <div className="w-screen h-screen overflow-hidden bg-white flex flex-col text-sm text-gray-800">
       {/* Header */}
       <div className="border-b border-gray-300 px-4 py-2 flex justify-between items-center">
         <div className="font-semibold">omegle</div>
@@ -169,10 +182,11 @@ export const Room = ({
       </div>
 
       {/* Main */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex overflow-hidden">
         {/* LEFT: Videos */}
         <div className="w-1/3 border-r border-gray-300 p-2 flex flex-col gap-2">
-          <div className="flex-1 border border-gray-300 bg-black relative">
+          {/* Remote video */}
+          <div className="flex-1 border border-gray-300 bg-black relative rounded overflow-hidden">
             <video
               ref={remoteVideoRef}
               autoPlay
@@ -186,7 +200,8 @@ export const Room = ({
             )}
           </div>
 
-          <div className="flex-1 border border-gray-300 bg-black">
+          {/* Local video */}
+          <div className="flex-1 border border-gray-300 bg-black relative rounded overflow-hidden">
             <video
               ref={localVideoRef}
               autoPlay
@@ -194,17 +209,59 @@ export const Room = ({
               playsInline
               className="w-full h-full object-cover"
             />
+
+            {!isCameraOn && (
+              <div className="absolute inset-0 bg-black/80 flex items-center justify-center text-white text-sm">
+                Camera off
+              </div>
+            )}
+
+            {/* CALL CONTROLS */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-4">
+              {/* Camera */}
+              <button
+                onClick={toggleCamera}
+                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg
+                  ${
+                    isCameraOn
+                      ? "bg-white hover:bg-gray-200"
+                      : "bg-red-600 hover:bg-red-700"
+                  }`}
+              >
+                {isCameraOn ? (
+                  <Camera className="w-6 h-6 text-black" />
+                ) : (
+                  <CameraOff className="w-6 h-6 text-white" />
+                )}
+              </button>
+
+              {/* Mic */}
+              <button
+                onClick={toggleMic}
+                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg
+                  ${
+                    isMicOn
+                      ? "bg-white hover:bg-gray-200"
+                      : "bg-red-600 hover:bg-red-700"
+                  }`}
+              >
+                {isMicOn ? (
+                  <Mic className="w-6 h-6 text-black" />
+                ) : (
+                  <MicOff className="w-6 h-6 text-white" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
         {/* RIGHT: Chat */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 p-4 overflow-y-auto">
             {messages.map((msg, idx) => {
-              const isMe: boolean = msg.senderId === mySocketId;
-
+              const isMe = msg.senderId === mySocketId;
               return (
-                <div key={idx} className="text-sm text-gray-800">
+                <div key={idx}>
                   <span className="font-semibold">
                     {isMe ? "You" : msg.senderName}
                   </span>
