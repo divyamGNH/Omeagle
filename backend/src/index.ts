@@ -12,7 +12,7 @@ const server = http.createServer(app);
 
 dotenv.config();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 
 const CLIENT_URL = process.env.CLIENT_URL;
 
