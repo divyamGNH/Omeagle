@@ -1,4 +1,3 @@
-import { timeStamp } from "console";
 import {User} from "./UserManager";
 import { Socket } from "socket.io";
 import { Server } from "socket.io";
@@ -106,10 +105,13 @@ export class RoomManager{
         const room = this.rooms.get(roomId);
 
         if(room){
+            room.user1.socket.leave(roomId);
+            room.user2.socket.leave(roomId);
+            
             this.socketToRoom.delete(room.user1.socket.id);
             this.socketToRoom.delete(room.user2.socket.id);
         }
-        
+
         this.rooms.delete(roomId);
     }
 

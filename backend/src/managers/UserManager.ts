@@ -30,14 +30,23 @@ export class UserManager{
     }
 
     //next connection
-    // removeUser(socketId : string){
-    //     const user = this.users.find(x=>x.socket.id===socketId);
-    //     if(!user) return;
+    nextConnection(socketId : string){
+        const found = this.roomManger.findRoomBySocketId(socketId);
+        if(!found) return;
 
-    //     this.users = this.users.filter(u=>u.socket.id !== socketId);
-    //     this.queue = this.queue.filter(id => id !== socketId);
-    //     this.roomManager.removeUser(socketId);
-    // }
+        const user1 = found.room.user1;
+        const user2 = found.room.user2;
+
+        this.roomManger.deleteRoom(found.roomId);
+
+        user1.socket.emit("lobby");
+        user2.socket.emit("lobby");
+
+        this.queue.push(user1.socket.id);
+        this.queue.push(user2.socket.id);
+
+        this.clearQueue();
+    }
 
     clearQueue(){
         console.log("inside clear queue");
@@ -79,6 +88,10 @@ export class UserManager{
         socket.on("send-message",({roomId, message})=>{
             this.roomManger.onMessage(roomId, message, socket.id);
         });  
+
+        socket.on("next-connection",(socketId:string)=>{
+            this.nextConnection(socketId);
+        })
         
         socket.on("disconnect", () => {
             this.endSession(socket);

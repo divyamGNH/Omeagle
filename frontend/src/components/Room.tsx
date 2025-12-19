@@ -158,6 +158,13 @@ export const Room = ({
     setMessage("");
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   const toggleCamera = () => {
     if (!localVideoTrack) return;
     localVideoTrack.enabled = !localVideoTrack.enabled;
@@ -170,6 +177,11 @@ export const Room = ({
     setIsMicOn(localAudioTrack.enabled);
   };
 
+  const handleNextConnection = () => {
+    if (!socketRef.current) return;
+    socketRef.current.emit("next-connection", socketRef.current.id);
+  };
+
   return (
     <div className="w-screen h-screen overflow-hidden bg-white flex flex-col text-sm text-gray-800">
       {/* Header */}
@@ -178,14 +190,13 @@ export const Room = ({
         <div className="text-gray-600">
           You are now chatting with a random stranger.
         </div>
-        <button className="text-gray-500 hover:text-black">×</button>
+        <div className="text-gray-500">×</div>
       </div>
 
       {/* Main */}
       <div className="flex-1 flex overflow-hidden">
         {/* LEFT: Videos */}
         <div className="w-1/3 border-r border-gray-300 p-2 flex flex-col gap-2">
-          {/* Remote video */}
           <div className="flex-1 border border-gray-300 bg-black relative rounded overflow-hidden">
             <video
               ref={remoteVideoRef}
@@ -200,7 +211,6 @@ export const Room = ({
             )}
           </div>
 
-          {/* Local video */}
           <div className="flex-1 border border-gray-300 bg-black relative rounded overflow-hidden">
             <video
               ref={localVideoRef}
@@ -216,17 +226,16 @@ export const Room = ({
               </div>
             )}
 
-            {/* CALL CONTROLS */}
+            {/* Controls */}
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-4">
               {/* Camera */}
               <button
                 onClick={toggleCamera}
-                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg
-                  ${
-                    isCameraOn
-                      ? "bg-white hover:bg-gray-200"
-                      : "bg-red-600 hover:bg-red-700"
-                  }`}
+                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${
+                  isCameraOn
+                    ? "bg-white hover:bg-gray-200"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
               >
                 {isCameraOn ? (
                   <Camera className="w-6 h-6 text-black" />
@@ -238,18 +247,25 @@ export const Room = ({
               {/* Mic */}
               <button
                 onClick={toggleMic}
-                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg
-                  ${
-                    isMicOn
-                      ? "bg-white hover:bg-gray-200"
-                      : "bg-red-600 hover:bg-red-700"
-                  }`}
+                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${
+                  isMicOn
+                    ? "bg-white hover:bg-gray-200"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
               >
                 {isMicOn ? (
                   <Mic className="w-6 h-6 text-black" />
                 ) : (
                   <MicOff className="w-6 h-6 text-white" />
                 )}
+              </button>
+
+              {/* NEXT */}
+              <button
+                onClick={handleNextConnection}
+                className="h-14 px-6 rounded-lg shadow-lg bg-red-600 hover:bg-red-700 text-white font-semibold"
+              >
+                NEXT
               </button>
             </div>
           </div>
@@ -286,6 +302,7 @@ export const Room = ({
               className="flex-1 border border-gray-300 px-2 py-1 outline-none"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Type a message..."
             />
             <button
